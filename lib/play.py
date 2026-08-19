@@ -89,7 +89,7 @@ class Player:
                 drm = True
                 break
 
-            if utils.try_get(resource, "protocol") == "HLS":
+            if utils.try_get(resource, "protocol") in ("HLS", "HLS-DVR"):
                 for key in ("SD", "HD"):
                     if utils.try_get(resource, "quality") == key:
                         stream_urls[key] = utils.try_get(resource, "url")
