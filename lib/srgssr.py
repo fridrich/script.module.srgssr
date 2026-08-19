@@ -167,13 +167,15 @@ class SRGSSR:
                 added = True
         return purl
 
-    def open_url(self, url, use_cache=True):
+    def open_url(self, url, use_cache=True, notify_on_error=True):
         """Open and read the content given by a URL.
 
         Keyword arguments:
-        url       -- the URL to open as a string
-        use_cache -- boolean to indicate if the cache provided by the
-                     Kodi module SimpleCache should be used (default: True)
+        url              -- the URL to open as a string
+        use_cache        -- boolean to indicate if the cache provided by the
+                             Kodi module SimpleCache should be used (default: True)
+        notify_on_error  -- boolean to indicate if a UI notification should be
+                             shown on failure (default: True)
         """
         self.log("open_url, url = " + str(url))
         cache_response = (
@@ -189,7 +191,8 @@ class SRGSSR:
             response = requests.get(url, headers=headers)
             if not response.ok:
                 self.log(f"open_url: Failed to open url {url}")
-                xbmcgui.Dialog().notification(ADDON_NAME, LANGUAGE(30100), ICON, 4000)
+                if notify_on_error:
+                    xbmcgui.Dialog().notification(ADDON_NAME, LANGUAGE(30100), ICON, 4000)
                 return ""
             response.encoding = "UTF-8"
             self.cache.set(
@@ -220,12 +223,14 @@ class SRGSSR:
         data = json.loads(self.open_url(self.apiv3_url + "shows"))
         return utils.try_get(data, "data", list, [])
 
-    def get_auth_url(self, url, segment_data=None):
+    def get_auth_url(self, url, segment_data=None, notify_on_error=True):
         """
         Returns the authenticated URL from a given stream URL.
 
         Keyword arguments:
-        url -- a given stream URL
+        url              -- a given stream URL
+        notify_on_error  -- boolean to indicate if a UI notification should be
+                             shown if the token request fails (default: True)
         """
         self.log(f"get_auth_url, url = {url}")
         spl = urlps(url).path.split("/")
@@ -234,6 +239,7 @@ class SRGSSR:
                 self.open_url(
                     f"https://tp.srgssr.ch/akahd/token?acl=/{spl[1]}/{spl[2]}/*",
                     use_cache=False,
+                    notify_on_error=notify_on_error,
                 )
             )
             or {}

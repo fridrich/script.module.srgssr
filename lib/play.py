@@ -19,14 +19,25 @@
 
 from urllib.parse import parse_qsl, ParseResult
 from urllib.parse import urlparse as urlps
+from urllib.parse import urlparse
 
 import json
+import xml.etree.ElementTree as ET
+
+import requests
+import xbmc
 import xbmcgui
 import xbmcplugin
 
 import inputstreamhelper
 
 import utils
+from manifest_proxy import ManifestProxyServer
+
+# Force Python to use the standard DASH/CENC/PlayReady XML tags when serializing
+ET.register_namespace('', 'urn:mpeg:dash:schema:mpd:2011')
+ET.register_namespace('cenc', 'urn:mpeg:cenc:2013')
+ET.register_namespace('mspr', 'urn:microsoft:playready')
 
 
 class Player:
@@ -199,9 +210,22 @@ class Player:
             self.srgssr.log("play_drm: Unable to setup drm")
             return
 
-        play_item = xbmcgui.ListItem(
-            title, path=self.srgssr.get_auth_url(resource_data["url"])
-        )
+        auth_url = self.srgssr.get_auth_url(resource_data["url"])
+        play_item_path = auth_url
+        manifest_update_url = auth_url
+        use_local_manifest = False
+
+        try:
+            xml_data, removed_any = self._fetch_filtered_manifest(resource_data["url"])
+            if xml_data is not None and removed_any:
+                proxy = self._start_manifest_proxy(resource_data["url"], xml_data)
+                play_item_path = proxy.url
+                manifest_update_url = proxy.url
+                use_local_manifest = True
+        except Exception as e:
+            self.srgssr.log(f"play_drm: Error modifying manifest: {e}")
+
+        play_item = xbmcgui.ListItem(title, path=play_item_path)
         ia = "inputstream.adaptive"
         play_item.setProperty("inputstream", ia)
         lic_key = (
@@ -211,4 +235,80 @@ class Player:
         play_item.setProperty(f"{ia}.manifest_type", manifest_type)
         play_item.setProperty(f"{ia}.license_type", drm)
         play_item.setProperty(f"{ia}.license_key", lic_key)
+        if use_local_manifest:
+            play_item.setProperty(f"{ia}.manifest_update_url", manifest_update_url)
         xbmcplugin.setResolvedUrl(self.handle, True, play_item)
+
+        if use_local_manifest:
+            # Blocks until playback ends, keeping the proxy alive that long.
+            proxy.wait_until_playback_stops(xbmc.Player())
+
+    def _start_manifest_proxy(self, stream_url, initial_xml):
+        """Starts a ManifestProxyServer that keeps re-fetching/filtering `stream_url`."""
+
+        def refresh():
+            xml_data, _ = self._fetch_filtered_manifest(stream_url)
+            return xml_data
+
+        return ManifestProxyServer(refresh, initial_xml, logger=self.srgssr.log)
+
+    def _fetch_filtered_manifest(self, stream_url):
+        """Fetches the manifest for `stream_url`, rewrites its BaseURL to point
+        directly at the origin, and strips out trickmode tracks.
+
+        Returns a (xml_bytes, removed_any) tuple. xml_bytes is None if the
+        manifest could not be fetched or parsed.
+        """
+        auth_url = self.srgssr.get_auth_url(stream_url, notify_on_error=False)
+        manifest_content = self._quiet_fetch(auth_url)
+        if not manifest_content:
+            return None, False
+
+        root = ET.fromstring(manifest_content.encode('utf-8'))
+        ns = {'mpd': 'urn:mpeg:dash:schema:mpd:2011'}
+
+        # This points Kodi to the remote server for the actual video segments
+        base_elem = ET.Element('{urn:mpeg:dash:schema:mpd:2011}BaseURL')
+        parsed_url = urlparse(auth_url)
+        base_elem.text = f"{parsed_url.scheme}://{parsed_url.netloc}{parsed_url.path.rsplit('/', 1)[0]}/"
+        root.insert(0, base_elem)
+
+        periods = root.findall('.//mpd:Period', ns) or root.findall('.//Period')
+        removed_any = False
+
+        # Strip out the trickmode tracks completely
+        for period in periods:
+            adaptation_sets = period.findall('mpd:AdaptationSet', ns) or period.findall('AdaptationSet')
+            for aset in adaptation_sets:
+                is_trickmode = False
+                for prop in aset.findall('mpd:EssentialProperty', ns) or aset.findall('EssentialProperty'):
+                    if 'trickmode' in prop.get('schemeIdUri', ''):
+                        is_trickmode = True
+                for prop in aset.findall('mpd:SupplementalProperty', ns) or aset.findall('SupplementalProperty'):
+                    if 'trickmode' in prop.get('schemeIdUri', ''):
+                        is_trickmode = True
+                if is_trickmode:
+                    period.remove(aset)
+                    removed_any = True
+
+        return ET.tostring(root, encoding='utf-8'), removed_any
+
+    def _quiet_fetch(self, url):
+        """Like srgssr.open_url(use_cache=False), but without a UI notification
+        on failure -- used for background manifest refreshes during playback."""
+        try:
+            headers = {
+                "User-Agent": (
+                    "Mozilla/5.0 (X11; Linux x86_64; rv:136.0) "
+                    "Gecko/20100101 Firefox/136.0"
+                )
+            }
+            response = requests.get(url, headers=headers, timeout=10)
+            if not response.ok:
+                self.srgssr.log(f"_quiet_fetch: {url} returned status {response.status_code}")
+                return ""
+            response.encoding = "UTF-8"
+            return response.text
+        except requests.RequestException as e:
+            self.srgssr.log(f"_quiet_fetch: failed to fetch {url}: {e}")
+            return ""
