@@ -44,3 +44,11 @@ msgstr "Sonda"
 msgctxt "#30066"
 msgid "Sunday"
 msgstr "Dumengia"
+
+msgctxt "#30101"
+msgid "Sports Live"
+msgstr "Sport Live"
+
+msgctxt "#30102"
+msgid "Other Live Streams"
+msgstr "Auters Live Streams"
