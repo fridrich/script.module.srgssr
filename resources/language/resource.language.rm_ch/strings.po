@@ -1,0 +1,46 @@
+# Kodi Media Center language file
+# Addon Name: script.module.srgssr
+# Addon Provider: Alexander Seiler
+msgid ""
+msgstr ""
+"Project-Id-Version: script.module.srgssr\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Language: rm\n"
+
+msgctxt "#30058"
+msgid "Today"
+msgstr "Oz"
+
+msgctxt "#30059"
+msgid "Yesterday"
+msgstr "Ier"
+
+msgctxt "#30060"
+msgid "Monday"
+msgstr "Glindesdi"
+
+msgctxt "#30061"
+msgid "Tuesday"
+msgstr "Mardi"
+
+msgctxt "#30062"
+msgid "Wednesday"
+msgstr "Mesemna"
+
+msgctxt "#30063"
+msgid "Thursday"
+msgstr "Gievgia"
+
+msgctxt "#30064"
+msgid "Friday"
+msgstr "Venderdi"
+
+msgctxt "#30065"
+msgid "Saturday"
+msgstr "Sonda"
+
+msgctxt "#30066"
+msgid "Sunday"
+msgstr "Dumengia"
