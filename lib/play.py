@@ -41,6 +41,45 @@ ET.register_namespace('cenc', 'urn:mpeg:cenc:2013')
 ET.register_namespace('mspr', 'urn:microsoft:playready')
 
 
+class SRGSSRPlaybackMonitor(xbmc.Player):
+    """Monitors playback to report progress to regional SRG SSR PEACH
+    history APIs.
+    """
+
+    def __init__(self, srgssr, urn):
+        xbmc.Player.__init__(self)
+        self.srgssr = srgssr
+        self.urn = urn
+        self.playback_active = True
+        self.last_position = 0
+        self.is_eof = False
+
+    def onPlayBackStarted(self):
+        self.srgssr.log("SRGSSRPlaybackMonitor: onPlayBackStarted")
+        self.playback_active = True
+
+    def onPlayBackStopped(self):
+        self.srgssr.log("SRGSSRPlaybackMonitor: onPlayBackStopped")
+        self.playback_active = False
+
+    def onPlayBackEnded(self):
+        self.srgssr.log("SRGSSRPlaybackMonitor: onPlayBackEnded")
+        self.playback_active = False
+        self.is_eof = True
+
+    def onPlayBackPaused(self):
+        self.srgssr.log("SRGSSRPlaybackMonitor: onPlayBackPaused")
+        if self.isPlayingVideo():
+            try:
+                pos = self.getTime()
+                self.srgssr.report_playback_progress(self.urn, pos)
+            except Exception:
+                pass
+
+    def onPlayBackResumed(self):
+        self.srgssr.log("SRGSSRPlaybackMonitor: onPlayBackResumed")
+
+
 class Player:
     """Handles playback logic for the SRGSSR plugin."""
 
@@ -204,6 +243,71 @@ class Player:
         play_item.setProperty("IsPlayable", "true")
 
         xbmcplugin.setResolvedUrl(self.handle, True, play_item)
+
+        # Start regional PEACH progress tracking if authenticated
+        session = self.srgssr.storage_manager.read_session()
+        if session and "id_token" in session:
+            monitor = SRGSSRPlaybackMonitor(self.srgssr, urn)
+            import threading
+
+            def tracking_thread():
+                self.srgssr.log(
+                    f"SRGSSRPlaybackMonitor: Starting thread for {urn}"
+                )
+                import time
+
+                last_report = time.time()
+                while monitor.playback_active:
+                    if xbmc.Monitor().abortRequested():
+                        self.srgssr.log(
+                            "SRGSSRPlaybackMonitor: Abort requested by Kodi"
+                        )
+                        break
+
+                    try:
+                        if monitor.isPlayingVideo():
+                            pos = monitor.getTime()
+                            if pos > 0:
+                                monitor.last_position = pos
+
+                            now = time.time()
+                            if (
+                                now - last_report >= 15.0
+                            ):  # Report position every 15 seconds
+                                monitor.srgssr.report_playback_progress(
+                                    monitor.urn, pos
+                                )
+                                last_report = now
+                    except Exception as e:
+                        self.srgssr.log(
+                            f"SRGSSRPlaybackMonitor Loop Error: {e}"
+                        )
+
+                    xbmc.sleep(1000)
+
+                # Send final stop or eof event
+                try:
+                    final_pos = monitor.last_position
+                    if monitor.is_eof:
+                        # Passing deleted=True signals finished / delete from
+                        # continue watching
+                        monitor.srgssr.report_playback_progress(
+                            monitor.urn, final_pos, deleted=True
+                        )
+                    else:
+                        monitor.srgssr.report_playback_progress(
+                            monitor.urn, final_pos
+                        )
+                except Exception as e:
+                    self.srgssr.log(
+                        "SRGSSRPlaybackMonitor: Error reporting final "
+                        f"progress: {e}"
+                    )
+                self.srgssr.log("SRGSSRPlaybackMonitor: Thread stopping")
+
+            t = threading.Thread(target=tracking_thread)
+            t.daemon = True
+            t.start()
 
     def play_drm(self, urn, title, resource_list):
         self.srgssr.log(f"play_drm: urn = {urn}")

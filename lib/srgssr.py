@@ -198,6 +198,11 @@ class SRGSSR:
                     "Gecko/20100101 Firefox/136.0"
                 )
             }
+            # Try to read session token and add Authorization header if present
+            session = self.storage_manager.read_session()
+            if session and "id_token" in session:
+                headers["Authorization"] = f"Bearer {session['id_token']}"
+
             response = requests.get(url, headers=headers)
             if not response.ok:
                 self.log(f"open_url: Failed to open url {url}")
@@ -214,6 +219,53 @@ class SRGSSR:
             )
             return response.text
         return self.cache.get(f"{ADDON_NAME}.open_url, url = {url}")
+
+    def report_playback_progress(self, urn, position, deleted=False):
+        """Reports current playback position to the regional EBU PEACH
+        history API.
+        """
+        session = self.storage_manager.read_session()
+        if not session or "id_token" not in session:
+            return False
+
+        host = f"https://profil.{self.bu}.ch"
+        if self.bu == "swi":
+            host = "https://profil.rts.ch"
+
+        url = f"{host}/api/history/v2"
+        headers = {
+            "Authorization": f"Bearer {session['id_token']}",
+            "Content-Type": "application/json",
+            "User-Agent": (
+                "Mozilla/5.0 (X11; Linux x86_64; rv:136.0) "
+                "Gecko/20100101 Firefox/136.0"
+            ),
+        }
+
+        import time
+
+        now_ms = int(time.time() * 1000)
+
+        payload = {
+            "item_id": urn,
+            "last_playback_position": float(position),
+            "device_id": "srg-player",
+            "deleted": deleted,
+            "date": now_ms,
+        }
+
+        self.log(f"report_playback_progress: url={url}, payload={payload}")
+        try:
+            response = requests.post(
+                url, json=payload, headers=headers, timeout=10
+            )
+            self.log(
+                f"report_playback_progress status: {response.status_code}"
+            )
+            return response.ok
+        except Exception as e:
+            self.log(f"Failed to report playback progress: {e}")
+            return False
 
     def get_youtube_icon(self):
         path = os.path.join(

@@ -99,3 +99,31 @@ class StorageManager:
             os.makedirs(self.profile_path)
         with open(file_path, "w") as f:
             json.dump(write_dict_list, f)
+
+    def read_session(self):
+        """Reads session.json from either the script's or the calling
+        addon's profile path.
+        """
+        # Try srgssr's profile path first
+        file_path = os.path.join(self.profile_path, "session.json")
+        if os.path.exists(file_path):
+            try:
+                with open(file_path, "r", encoding="utf-8") as f:
+                    return json.load(f)
+            except Exception:
+                pass
+
+        # Try the calling addon's profile path as fallback
+        try:
+            caller_id = self.srgssr.addon_id
+            caller_profile = xbmcvfs.translatePath(
+                f"special://profile/addon_data/{caller_id}"
+            )
+            fallback_path = os.path.join(caller_profile, "session.json")
+            if os.path.exists(fallback_path):
+                with open(fallback_path, "r", encoding="utf-8") as f:
+                    return json.load(f)
+        except Exception:
+            pass
+
+        return None
