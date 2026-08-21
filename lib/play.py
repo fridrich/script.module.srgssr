@@ -55,6 +55,18 @@ class Player:
         Keyword arguments:
         media_id_or_urn -- the urn or id of the media to play
         """
+        if ":scheduled_livestream:" in media_id_or_urn:
+            # The scheduledLivestreams IL 2.0 endpoint returns event
+            # pointer URNs (urn:<bu>:scheduled_livestream:video:<uuid>)
+            # that mediaComposition/byUrn cannot resolve. The actual
+            # playable stream uses the swisstxt URN scheme instead.
+            parts = media_id_or_urn.split(":")
+            bu = parts[1]
+            event_id = parts[-1]
+            media_id_or_urn = (
+                f"urn:swisstxt:video:{bu}:{event_id.replace('-', '')}"
+            )
+
         if media_id_or_urn.startswith("urn:"):
             urn = media_id_or_urn
             media_id = media_id_or_urn.split(":")[-1]
