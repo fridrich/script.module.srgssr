@@ -88,7 +88,9 @@ class SRGSSR:
         self.apiv3_url = f"{self.host_url}/play/v3/api/{bu}/production/"
         self.data_regex = r"window.__remixContext\s*=\s*(.+?);\s*</script>"
         self.data_uri = f"special://home/addons/{self.addon_id}/resources/data"
-        self.media_uri = f"special://home/addons/{self.addon_id}/resources/media"
+        self.media_uri = (
+            f"special://home/addons/{self.addon_id}/resources/media"
+        )
 
         # Plugin options
         self.debug = self.get_boolean_setting("Enable_Debugging")
@@ -172,14 +174,17 @@ class SRGSSR:
 
         Keyword arguments:
         url              -- the URL to open as a string
-        use_cache        -- boolean to indicate if the cache provided by the
-                             Kodi module SimpleCache should be used (default: True)
+        use_cache        -- boolean to indicate if the cache provided by
+                             the Kodi module SimpleCache should be used
+                             (default: True)
         notify_on_error  -- boolean to indicate if a UI notification should be
                              shown on failure (default: True)
         """
         self.log("open_url, url = " + str(url))
         cache_response = (
-            self.cache.get(f"{ADDON_NAME}.open_url, url = {url}") if use_cache else None
+            self.cache.get(f"{ADDON_NAME}.open_url, url = {url}")
+            if use_cache
+            else None
         )
         if not cache_response:
             headers = {
@@ -192,7 +197,9 @@ class SRGSSR:
             if not response.ok:
                 self.log(f"open_url: Failed to open url {url}")
                 if notify_on_error:
-                    xbmcgui.Dialog().notification(ADDON_NAME, LANGUAGE(30100), ICON, 4000)
+                    xbmcgui.Dialog().notification(
+                        ADDON_NAME, LANGUAGE(30100), ICON, 4000
+                    )
                 return ""
             response.encoding = "UTF-8"
             self.cache.set(
@@ -237,7 +244,8 @@ class SRGSSR:
         token = (
             json.loads(
                 self.open_url(
-                    f"https://tp.srgssr.ch/akahd/token?acl=/{spl[1]}/{spl[2]}/*",
+                    "https://tp.srgssr.ch/akahd/token"
+                    f"?acl=/{spl[1]}/{spl[2]}/*",
                     use_cache=False,
                     notify_on_error=notify_on_error,
                 )

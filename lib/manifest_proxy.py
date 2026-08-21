@@ -28,7 +28,8 @@ STARTUP_TIMEOUT_SECONDS = 60
 
 
 class ManifestProxyServer:
-    """Serves a locally-filtered DASH manifest, re-fetching it on every request.
+    """Serves a locally-filtered DASH manifest, re-fetching it on every
+    request.
 
     This keeps the manifest live-updated for the whole playback session, and
     ties its own lifetime to actual playback (stopped/ended/error) instead of a
@@ -110,7 +111,9 @@ class ManifestProxyServer:
             with self._lock:
                 idle = time.monotonic() - self._last_request
             if idle > IDLE_TIMEOUT_SECONDS:
-                self._log("ManifestProxyServer: idle timeout reached, shutting down")
+                self._log(
+                    "ManifestProxyServer: idle timeout reached, shutting down"
+                )
                 self.stop()
                 break
 
@@ -134,14 +137,19 @@ class ManifestProxyServer:
             if player.isPlayingVideo() and player.getPlayingFile() == self.url:
                 break
             if time.monotonic() - start > STARTUP_TIMEOUT_SECONDS:
-                self._log("ManifestProxyServer: playback never started, shutting down")
+                self._log(
+                    "ManifestProxyServer: playback never started, "
+                    "shutting down"
+                )
                 self.stop()
                 return
             if self._stopped.wait(poll_interval):
                 return
 
         while not self._stopped.is_set():
-            if not (player.isPlayingVideo() and player.getPlayingFile() == self.url):
+            if not (
+                player.isPlayingVideo() and player.getPlayingFile() == self.url
+            ):
                 break
             if self._stopped.wait(poll_interval):
                 return

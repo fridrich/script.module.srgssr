@@ -34,7 +34,8 @@ import inputstreamhelper
 import utils
 from manifest_proxy import ManifestProxyServer
 
-# Force Python to use the standard DASH/CENC/PlayReady XML tags when serializing
+# Force Python to use the standard DASH/CENC/PlayReady XML tags when
+# serializing
 ET.register_namespace('', 'urn:mpeg:dash:schema:mpd:2011')
 ET.register_namespace('cenc', 'urn:mpeg:cenc:2013')
 ET.register_namespace('mspr', 'urn:microsoft:playready')
@@ -62,10 +63,13 @@ class Player:
             media_type = "video"
             urn = f"urn:{self.srgssr.bu}:{media_type}:{media_id_or_urn}"
             media_id = media_id_or_urn
-        self.srgssr.log("play_video, urn = " + urn + ", media_id = " + media_id)
+        self.srgssr.log(
+            "play_video, urn = " + urn + ", media_id = " + media_id
+        )
 
         detail_url = (
-            "https://il.srgssr.ch/integrationlayer/2.0/mediaComposition/byUrn/" + urn
+            "https://il.srgssr.ch/integrationlayer/2.0/mediaComposition/byUrn/"
+            + urn
         )
         json_response = json.loads(self.srgssr.open_url(detail_url))
         title = utils.try_get(json_response, ["episode", "title"], str, urn)
@@ -74,10 +78,14 @@ class Player:
             json_response, "chapterList", data_type=list, default=[]
         )
         if not chapter_list:
-            self.srgssr.log("play_video: no stream URL found (chapterList empty).")
+            self.srgssr.log(
+                "play_video: no stream URL found (chapterList empty)."
+            )
             return
 
-        first_chapter = utils.try_get(chapter_list, 0, data_type=dict, default={})
+        first_chapter = utils.try_get(
+            chapter_list, 0, data_type=dict, default={}
+        )
         chapter = next(
             (e for e in chapter_list if e.get("id") == media_id), first_chapter
         )
@@ -85,7 +93,9 @@ class Player:
             chapter, "resourceList", data_type=list, default=[]
         )
         if not resource_list:
-            self.srgssr.log("play_video: no stream URL found. (resourceList empty)")
+            self.srgssr.log(
+                "play_video: no stream URL found. (resourceList empty)"
+            )
             return
 
         stream_urls = {
@@ -115,7 +125,8 @@ class Player:
 
         stream_url = (
             stream_urls["HD"]
-            if (stream_urls["HD"] and self.srgssr.prefer_hd) or not stream_urls["SD"]
+            if (stream_urls["HD"] and self.srgssr.prefer_hd)
+            or not stream_urls["SD"]
             else stream_urls["SD"]
         )
         self.srgssr.log(f"play_video, stream_url = {stream_url}")
@@ -190,7 +201,9 @@ class Player:
             quality = utils.try_get(resource, "quality")
             lic_url = ""
             if utils.try_get(resource, "protocol") == "DASH":
-                drmlist = utils.try_get(resource, "drmList", data_type=list, default=[])
+                drmlist = utils.try_get(
+                    resource, "drmList", data_type=list, default=[]
+                )
                 for item in drmlist:
                     if utils.try_get(item, "type") == "WIDEVINE":
                         lic_url = utils.try_get(item, "licenseUrl")
@@ -216,9 +229,13 @@ class Player:
         use_local_manifest = False
 
         try:
-            xml_data, removed_any = self._fetch_filtered_manifest(resource_data["url"])
+            xml_data, removed_any = self._fetch_filtered_manifest(
+                resource_data["url"]
+            )
             if xml_data is not None and removed_any:
-                proxy = self._start_manifest_proxy(resource_data["url"], xml_data)
+                proxy = self._start_manifest_proxy(
+                    resource_data["url"], xml_data
+                )
                 play_item_path = proxy.url
                 manifest_update_url = proxy.url
                 use_local_manifest = True
@@ -236,7 +253,9 @@ class Player:
         play_item.setProperty(f"{ia}.license_type", drm)
         play_item.setProperty(f"{ia}.license_key", lic_key)
         if use_local_manifest:
-            play_item.setProperty(f"{ia}.manifest_update_url", manifest_update_url)
+            play_item.setProperty(
+                f"{ia}.manifest_update_url", manifest_update_url
+            )
         xbmcplugin.setResolvedUrl(self.handle, True, play_item)
 
         if use_local_manifest:
@@ -244,13 +263,17 @@ class Player:
             proxy.wait_until_playback_stops(xbmc.Player())
 
     def _start_manifest_proxy(self, stream_url, initial_xml):
-        """Starts a ManifestProxyServer that keeps re-fetching/filtering `stream_url`."""
+        """Starts a ManifestProxyServer that keeps re-fetching/filtering
+        `stream_url`.
+        """
 
         def refresh():
             xml_data, _ = self._fetch_filtered_manifest(stream_url)
             return xml_data
 
-        return ManifestProxyServer(refresh, initial_xml, logger=self.srgssr.log)
+        return ManifestProxyServer(
+            refresh, initial_xml, logger=self.srgssr.log
+        )
 
     def _fetch_filtered_manifest(self, stream_url):
         """Fetches the manifest for `stream_url`, rewrites its BaseURL to point
@@ -270,21 +293,32 @@ class Player:
         # This points Kodi to the remote server for the actual video segments
         base_elem = ET.Element('{urn:mpeg:dash:schema:mpd:2011}BaseURL')
         parsed_url = urlparse(auth_url)
-        base_elem.text = f"{parsed_url.scheme}://{parsed_url.netloc}{parsed_url.path.rsplit('/', 1)[0]}/"
+        base_path = parsed_url.path.rsplit('/', 1)[0]
+        base_elem.text = (
+            f"{parsed_url.scheme}://{parsed_url.netloc}{base_path}/"
+        )
         root.insert(0, base_elem)
 
-        periods = root.findall('.//mpd:Period', ns) or root.findall('.//Period')
+        periods = root.findall('.//mpd:Period', ns) or root.findall(
+            './/Period'
+        )
         removed_any = False
 
         # Strip out the trickmode tracks completely
         for period in periods:
-            adaptation_sets = period.findall('mpd:AdaptationSet', ns) or period.findall('AdaptationSet')
+            adaptation_sets = period.findall(
+                'mpd:AdaptationSet', ns
+            ) or period.findall('AdaptationSet')
             for aset in adaptation_sets:
                 is_trickmode = False
-                for prop in aset.findall('mpd:EssentialProperty', ns) or aset.findall('EssentialProperty'):
+                for prop in aset.findall(
+                    'mpd:EssentialProperty', ns
+                ) or aset.findall('EssentialProperty'):
                     if 'trickmode' in prop.get('schemeIdUri', ''):
                         is_trickmode = True
-                for prop in aset.findall('mpd:SupplementalProperty', ns) or aset.findall('SupplementalProperty'):
+                for prop in aset.findall(
+                    'mpd:SupplementalProperty', ns
+                ) or aset.findall('SupplementalProperty'):
                     if 'trickmode' in prop.get('schemeIdUri', ''):
                         is_trickmode = True
                 if is_trickmode:
@@ -295,7 +329,8 @@ class Player:
 
     def _quiet_fetch(self, url):
         """Like srgssr.open_url(use_cache=False), but without a UI notification
-        on failure -- used for background manifest refreshes during playback."""
+        on failure -- used for background manifest refreshes during playback.
+        """
         try:
             headers = {
                 "User-Agent": (
@@ -305,7 +340,10 @@ class Player:
             }
             response = requests.get(url, headers=headers, timeout=10)
             if not response.ok:
-                self.srgssr.log(f"_quiet_fetch: {url} returned status {response.status_code}")
+                self.srgssr.log(
+                    "_quiet_fetch: "
+                    f"{url} returned status {response.status_code}"
+                )
                 return ""
             response.encoding = "UTF-8"
             return response.text

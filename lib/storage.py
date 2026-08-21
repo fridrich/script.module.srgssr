@@ -63,7 +63,9 @@ class StorageManager:
         show_ids -- a list of show ids (as strings)
         """
         show_ids_dict_list = [{"id": show_id} for show_id in show_ids]
-        file_path = os.path.join(self.profile_path, self.srgssr.fname_favourite_shows)
+        file_path = os.path.join(
+            self.profile_path, self.srgssr.fname_favourite_shows
+        )
         if not os.path.exists(self.profile_path):
             os.makedirs(self.profile_path)
         with open(file_path, "w") as f:

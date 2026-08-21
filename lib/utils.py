@@ -59,7 +59,9 @@ def assemble_query_string(query_list):
     """
     if sys.version_info[0] >= 3:
         return "&".join(["{}={}".format(k, v) for (k, v) in query_list])
-    return "&".join(["{}={}".decode("utf-8").format(k, v) for (k, v) in query_list])
+    return "&".join(
+        ["{}={}".decode("utf-8").format(k, v) for (k, v) in query_list]
+    )
 
 
 def str_or_none(inp, default=None):
@@ -161,7 +163,9 @@ def _parse_date_time_tz(input_string):
             hour = int(dts[11:13])
             minute = int(dts[14:16])
             second = int(dts[17:19])
-            date_time = datetime.datetime(year, month, day, hour, minute, second)
+            date_time = datetime.datetime(
+                year, month, day, hour, minute, second
+            )
             return date_time
         except ValueError:
             return None
@@ -268,7 +272,9 @@ def _parse_weekday_time(input_string):
         # wdl = [x for x in weekdays if input_string.startswith(x)]
         for key in list(identifiers.keys()):
             wdl = [
-                x for x in identifiers[key] if re.match(x, input_string, re.IGNORECASE)
+                x
+                for x in identifiers[key]
+                if re.match(x, input_string, re.IGNORECASE)
             ]
             lang = key
             if wdl:
@@ -340,7 +346,9 @@ def _parse_date_time(input_string):
             return None
         try:
             second = int(full_date_match.group("second"))
-            date_time = datetime.datetime(year, month, day, hour, minute, second)
+            date_time = datetime.datetime(
+                year, month, day, hour, minute, second
+            )
             return date_time
         except (ValueError, TypeError):
             return date_time

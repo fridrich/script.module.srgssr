@@ -46,7 +46,9 @@ class MenuBuilder:
         self.srgssr.log("build_main_menu")
 
         def display_item(item):
-            return item in identifiers and self.srgssr.get_boolean_setting(item)
+            return item in identifiers and self.srgssr.get_boolean_setting(
+                item
+            )
 
         main_menu_list = [
             {
@@ -126,11 +128,17 @@ class MenuBuilder:
                 "identifier": f"{self.srgssr.bu.upper()}_YouTube",
                 "name": self.srgssr.plugin_language(30074),
                 "mode": 30,
-                "displayItem": display_item(f"{self.srgssr.bu.upper()}_YouTube"),
+                "displayItem": display_item(
+                    f"{self.srgssr.bu.upper()}_YouTube"
+                ),
                 "icon": self.srgssr.get_youtube_icon(),
             },
         ]
-        folders = [item for item in main_menu_list if item["identifier"] in identifiers]
+        folders = [
+            item
+            for item in main_menu_list
+            if item["identifier"] in identifiers
+        ]
         self.build_folder_menu(folders)
 
     def build_folder_menu(self, folders):
@@ -143,13 +151,18 @@ class MenuBuilder:
             if item.get("displayItem"):
                 list_item = xbmcgui.ListItem(label=item["name"])
                 list_item.setProperty("IsPlayable", "false")
-                list_item.setArt({"thumb": item["icon"], "fanart": self.srgssr.fanart})
+                list_item.setArt(
+                    {"thumb": item["icon"], "fanart": self.srgssr.fanart}
+                )
                 purl_dict = item.get("purl", {})
                 mode = purl_dict.get("mode") or item.get("mode")
                 uname = purl_dict.get("name") or item.get("identifier")
                 purl = self.srgssr.build_url(mode=mode, name=uname)
                 xbmcplugin.addDirectoryItem(
-                    handle=self.handle, url=purl, listitem=list_item, isFolder=True
+                    handle=self.handle,
+                    url=purl,
+                    listitem=list_item,
+                    isFolder=True,
                 )
 
     def build_menu_apiv3(
@@ -178,7 +191,9 @@ class MenuBuilder:
             # Build a combined and sorted list for several queries
             items = []
             for query in queries:
-                data = json.loads(self.srgssr.open_url(self.srgssr.apiv3_url + query))
+                data = json.loads(
+                    self.srgssr.open_url(self.srgssr.apiv3_url + query)
+                )
                 if data:
                     data = (
                         utils.try_get(data, ["data", "data"], list, [])
@@ -206,8 +221,12 @@ class MenuBuilder:
             url = f"{self.srgssr.apiv3_url}{queries}{symb}next={cursor}"
             data = json.loads(self.srgssr.open_url(url))
         else:
-            data = json.loads(self.srgssr.open_url(self.srgssr.apiv3_url + queries))
-        cursor = utils.try_get(data, "next") or utils.try_get(data, ["data", "next"])
+            data = json.loads(
+                self.srgssr.open_url(self.srgssr.apiv3_url + queries)
+            )
+        cursor = utils.try_get(data, "next") or utils.try_get(
+            data, ["data", "next"]
+        )
 
         try:
             data = data["data"]
@@ -223,7 +242,9 @@ class MenuBuilder:
         )
 
         for item in items:
-            self.build_entry_apiv3(item, is_show=is_show, whitelist_ids=whitelist_ids)
+            self.build_entry_apiv3(
+                item, is_show=is_show, whitelist_ids=whitelist_ids
+            )
 
         if cursor:
             if page in (0, "0"):
@@ -238,7 +259,10 @@ class MenuBuilder:
 
             if page:
                 url = self.srgssr.build_url(
-                    mode=mode, name=queries, page=int(page) + 1, page_hash=cursor
+                    mode=mode,
+                    name=queries,
+                    page=int(page) + 1,
+                    page_hash=cursor,
                 )
             else:
                 url = self.srgssr.build_url(
@@ -249,7 +273,9 @@ class MenuBuilder:
                 label=">> " + self.srgssr.language(30073)
             )  # Next page
             next_item.setProperty("IsPlayable", "false")
-            xbmcplugin.addDirectoryItem(self.handle, url, next_item, isFolder=True)
+            xbmcplugin.addDirectoryItem(
+                self.handle, url, next_item, isFolder=True
+            )
 
     def build_all_shows_menu(self, favids=None):
         """
@@ -333,7 +359,9 @@ class MenuBuilder:
             return
         data = utils.try_get(js, path, list, [])
         if not data:
-            self.srgssr.log("build_menu_from_page: Could not find any data in json")
+            self.srgssr.log(
+                "build_menu_from_page: Could not find any data in json"
+            )
             return
         for elem in data:
             try:
@@ -391,7 +419,9 @@ class MenuBuilder:
         segment_option   -- Which segment option to use.
                             (default: False)
         """
-        self.srgssr.log(f"build_episode_menu, video_id_or_urn = {video_id_or_urn}")
+        self.srgssr.log(
+            f"build_episode_menu, video_id_or_urn = {video_id_or_urn}"
+        )
         if ":" in video_id_or_urn:
             json_url = (
                 "https://il.srgssr.ch/integrationlayer/2.0/"
@@ -424,14 +454,14 @@ class MenuBuilder:
         segment_id = segment_urn.split(":")[-1] if segment_urn else None
 
         if not chapter_id:
-            self.srgssr.log(
-                f"build_episode_menu: No valid chapter URN \
-                available for video_id {video_id}"
-            )
+            self.srgssr.log(f"build_episode_menu: No valid chapter URN \
+                available for video_id {video_id}")
             return
 
         show_image_url = utils.try_get(json_response, ["show", "imageUrl"])
-        show_poster_image_url = utils.try_get(json_response, ["show", "posterImageUrl"])
+        show_poster_image_url = utils.try_get(
+            json_response, ["show", "posterImageUrl"]
+        )
 
         json_chapter_list = utils.try_get(
             json_response, "chapterList", data_type=list, default=[]
@@ -442,10 +472,8 @@ class MenuBuilder:
                 json_chapter = chapter
                 break
         if not json_chapter:
-            self.srgssr.log(
-                f"build_episode_menu: No chapter ID found \
-                for video_id {video_id}"
-            )
+            self.srgssr.log(f"build_episode_menu: No chapter ID found \
+                for video_id {video_id}")
             return
 
         # TODO: Simplify
@@ -491,10 +519,8 @@ class MenuBuilder:
                     json_segment = segment
                     break
             if not json_segment:
-                self.srgssr.log(
-                    f"build_episode_menu: No segment ID found \
-                    for video_id {video_id}"
-                )
+                self.srgssr.log(f"build_episode_menu: No segment ID found \
+                    for video_id {video_id}")
                 return
             # Generate a simple playable item for the video
             self.build_entry(
@@ -555,11 +581,17 @@ class MenuBuilder:
         )
         if is_show:
             poster = (
-                show_poster_image_url or poster_image_url or show_image_url or image_url
+                show_poster_image_url
+                or poster_image_url
+                or show_image_url
+                or image_url
             )
         else:
             poster = (
-                image_url or poster_image_url or show_poster_image_url or show_image_url
+                image_url
+                or poster_image_url
+                or show_poster_image_url
+                or show_image_url
             )
         list_item.setArt(
             {
@@ -572,7 +604,9 @@ class MenuBuilder:
         url = self.srgssr.build_url(mode=100, name=urn)
         is_folder = True
 
-        xbmcplugin.addDirectoryItem(self.handle, url, list_item, isFolder=is_folder)
+        xbmcplugin.addDirectoryItem(
+            self.handle, url, list_item, isFolder=is_folder
+        )
 
     def build_menu_by_urn(self, urn):
         """
@@ -641,11 +675,15 @@ class MenuBuilder:
         # This needs to be removed from the URL:
         image_url = re.sub(r"/\d+x\d+", "", image_url)
 
-        duration = utils.try_get(json_entry, "duration", data_type=int, default=None)
+        duration = utils.try_get(
+            json_entry, "duration", data_type=int, default=None
+        )
         if duration:
             duration = duration // 1000
         else:
-            duration = utils.get_duration(utils.try_get(json_entry, "duration"))
+            duration = utils.get_duration(
+                utils.try_get(json_entry, "duration")
+            )
 
         date_string = utils.try_get(json_entry, "date")
         dto = utils.parse_datetime(date_string)
@@ -667,7 +705,10 @@ class MenuBuilder:
             fanart = image_url
 
         poster = (
-            image_url or poster_image_url or show_poster_image_url or show_image_url
+            image_url
+            or poster_image_url
+            or show_poster_image_url
+            or show_image_url
         )
         list_item.setArt(
             {
@@ -678,7 +719,9 @@ class MenuBuilder:
             }
         )
 
-        subs = utils.try_get(json_entry, "subtitleList", data_type=list, default=[])
+        subs = utils.try_get(
+            json_entry, "subtitleList", data_type=list, default=[]
+        )
         if subs:
             subtitle_list = [
                 utils.try_get(x, "url")
@@ -688,7 +731,9 @@ class MenuBuilder:
             if subtitle_list:
                 list_item.setSubtitles(subtitle_list)
             else:
-                self.srgssr.log(f"No WEBVTT subtitles found for video id {vid}.")
+                self.srgssr.log(
+                    f"No WEBVTT subtitles found for video id {vid}."
+                )
 
         # TODO:
         # Prefer urn over vid as it contains already all data
@@ -706,7 +751,9 @@ class MenuBuilder:
                 url = self.srgssr.build_url(mode=50, name=urn)
             else:
                 url = self.srgssr.build_url(mode=50, name=name)
-        xbmcplugin.addDirectoryItem(self.handle, url, list_item, isFolder=is_folder)
+        xbmcplugin.addDirectoryItem(
+            self.handle, url, list_item, isFolder=is_folder
+        )
 
     def build_dates_overview_menu(self):
         """
@@ -737,7 +784,10 @@ class MenuBuilder:
             elif dato == today + datetime.timedelta(-1):
                 name = self.srgssr.language(30059)  # Yesterday
             else:
-                name = "%s, %s" % (weekdays[dato.weekday()], dato.strftime("%d.%m.%Y"))
+                name = "%s, %s" % (
+                    weekdays[dato.weekday()],
+                    dato.strftime("%d.%m.%Y"),
+                )
             return name
 
         current_date = datetime.date.today()
@@ -746,15 +796,21 @@ class MenuBuilder:
         for i in range(number_of_days):
             dato = current_date + datetime.timedelta(-i)
             list_item = xbmcgui.ListItem(label=folder_name(dato))
-            list_item.setArt({"thumb": self.srgssr.icon, "fanart": self.srgssr.fanart})
+            list_item.setArt(
+                {"thumb": self.srgssr.icon, "fanart": self.srgssr.fanart}
+            )
             name = dato.strftime("%d-%m-%Y")
             purl = self.srgssr.build_url(mode=24, name=name)
             xbmcplugin.addDirectoryItem(
                 handle=self.handle, url=purl, listitem=list_item, isFolder=True
             )
 
-        choose_item = xbmcgui.ListItem(label=self.srgssr.language(30071))  # Choose date
-        choose_item.setArt({"thumb": self.srgssr.icon, "fanart": self.srgssr.fanart})
+        choose_item = xbmcgui.ListItem(
+            label=self.srgssr.language(30071)
+        )  # Choose date
+        choose_item.setArt(
+            {"thumb": self.srgssr.icon, "fanart": self.srgssr.fanart}
+        )
         purl = self.srgssr.build_url(mode=25)
         xbmcplugin.addDirectoryItem(
             handle=self.handle, url=purl, listitem=choose_item, isFolder=True
@@ -810,7 +866,9 @@ class MenuBuilder:
         for item in data:
             if not isinstance(item, dict):
                 continue
-            channel = utils.try_get(item, "channel", data_type=dict, default={})
+            channel = utils.try_get(
+                item, "channel", data_type=dict, default={}
+            )
             name = utils.try_get(channel, "title")
             if not name:
                 continue
@@ -820,7 +878,9 @@ class MenuBuilder:
             list_item.setArt({"thumb": image, "fanart": image})
             channel_date_id = name.replace(" ", "-") + "_" + date_string
             cache_id = self.srgssr.addon_id + "." + channel_date_id
-            programs = utils.try_get(item, "programList", data_type=list, default=[])
+            programs = utils.try_get(
+                item, "programList", data_type=list, default=[]
+            )
             self.srgssr.cache.set(cache_id, programs)
             self.srgssr.log(f"build_date_menu: Cache set with id = {cache_id}")
             url = self.srgssr.build_url(mode=mode, name=cache_id)
@@ -885,7 +945,9 @@ class MenuBuilder:
                 continue
             list_item = xbmcgui.ListItem(label=item["name"])
             list_item.setProperty("IsPlayable", "false")
-            list_item.setArt({"thumb": item["icon"], "fanart": self.srgssr.fanart})
+            list_item.setArt(
+                {"thumb": item["icon"], "fanart": self.srgssr.fanart}
+            )
             url = self.srgssr.build_url(item["mode"])
             xbmcplugin.addDirectoryItem(
                 handle=self.handle, url=url, listitem=list_item, isFolder=True
@@ -921,10 +983,8 @@ class MenuBuilder:
         page_hash  -- the page hash when coming from a previous page
                       (default: '')
         """
-        self.srgssr.log(
-            f"build_search_media_menu, mode = {mode}, \
-            name = {name}, page = {page}, page_hash = {page_hash}"
-        )
+        self.srgssr.log(f"build_search_media_menu, mode = {mode}, \
+            name = {name}, page = {page}, page_hash = {page_hash}")
         media_type = "video"
         if name:
             # `name` is provided by `next_page` folder or
