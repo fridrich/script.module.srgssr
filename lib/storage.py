@@ -127,3 +127,16 @@ class StorageManager:
             pass
 
         return None
+
+    def write_session(self, session):
+        """Writes session.json to the script's own profile path.
+
+        Used after a token refresh, so that from then on the script's own
+        copy (checked first by read_session) is the up-to-date one, even if
+        the session was originally read from a calling addon's profile.
+        """
+        if not os.path.exists(self.profile_path):
+            os.makedirs(self.profile_path)
+        file_path = os.path.join(self.profile_path, "session.json")
+        with open(file_path, "w", encoding="utf-8") as f:
+            json.dump(session, f)

@@ -245,8 +245,8 @@ class Player:
         xbmcplugin.setResolvedUrl(self.handle, True, play_item)
 
         # Start regional PEACH progress tracking if authenticated
-        session = self.srgssr.storage_manager.read_session()
-        if session and "id_token" in session:
+        session = self.srgssr.get_session()
+        if session and "access_token" in session:
             monitor = SRGSSRPlaybackMonitor(self.srgssr, urn)
             import threading
 

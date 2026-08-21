@@ -22,6 +22,7 @@ from urllib.parse import urlparse as urlps
 
 import os
 import sys
+import time
 import traceback
 import datetime
 import json
@@ -54,6 +55,8 @@ IDREGEX = r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|\d+"
 FAVOURITE_SHOWS_FILENAME = "favourite_shows.json"
 RECENT_MEDIA_SEARCHES_FILENAME = "recently_searched_medias.json"
 YOUTUBE_CHANNELS_FILENAME = "youtube_channels.json"
+
+TOKEN_URL = "https://account.srgssr.ch/token-srv/token"
 
 
 def get_params():
@@ -174,6 +177,62 @@ class SRGSSR:
                 added = True
         return purl
 
+    def get_session(self):
+        """Returns the stored session with a valid (non-expired) access
+        token, transparently refreshing it via its refresh_token if needed.
+
+        Returns None if there is no session, or if refreshing an expired
+        one fails.
+        """
+        session = self.storage_manager.read_session()
+        if not session or "refresh_token" not in session:
+            return None
+
+        # Refresh a bit ahead of the actual expiry to avoid races with
+        # in-flight requests.
+        if session.get("expires_at", 0) > time.time() + 60:
+            return session
+
+        return self._refresh_session(session)
+
+    def _refresh_session(self, session):
+        """Exchanges session["refresh_token"] for a new token set and
+        persists it. cidaas rotates the refresh_token on every use, so the
+        old one becomes invalid as soon as this succeeds.
+        """
+        try:
+            response = requests.post(
+                TOKEN_URL,
+                data={
+                    "grant_type": "refresh_token",
+                    "client_id": session["client_id"],
+                    "refresh_token": session["refresh_token"],
+                },
+                timeout=10,
+            )
+            if not response.ok:
+                self.log(
+                    "_refresh_session: refresh failed, "
+                    f"status {response.status_code}"
+                )
+                return None
+            token_data = response.json()
+        except Exception as e:
+            self.log(f"_refresh_session: error refreshing session: {e}")
+            return None
+
+        session = dict(session)
+        session.update(
+            {
+                "id_token": token_data["id_token"],
+                "access_token": token_data["access_token"],
+                "refresh_token": token_data["refresh_token"],
+                "expires_at": time.time() + token_data.get("expires_in", 0),
+            }
+        )
+        self.storage_manager.write_session(session)
+        return session
+
     def open_url(self, url, use_cache=True, notify_on_error=True):
         """Open and read the content given by a URL.
 
@@ -199,9 +258,9 @@ class SRGSSR:
                 )
             }
             # Try to read session token and add Authorization header if present
-            session = self.storage_manager.read_session()
-            if session and "id_token" in session:
-                headers["Authorization"] = f"Bearer {session['id_token']}"
+            session = self.get_session()
+            if session and "access_token" in session:
+                headers["Authorization"] = f"Bearer {session['access_token']}"
 
             response = requests.get(url, headers=headers)
             if not response.ok:
@@ -224,8 +283,8 @@ class SRGSSR:
         """Reports current playback position to the regional EBU PEACH
         history API.
         """
-        session = self.storage_manager.read_session()
-        if not session or "id_token" not in session:
+        session = self.get_session()
+        if not session or "access_token" not in session:
             return False
 
         host = f"https://profil.{self.bu}.ch"
@@ -234,15 +293,13 @@ class SRGSSR:
 
         url = f"{host}/api/history/v2"
         headers = {
-            "Authorization": f"Bearer {session['id_token']}",
+            "Authorization": f"Bearer {session['access_token']}",
             "Content-Type": "application/json",
             "User-Agent": (
                 "Mozilla/5.0 (X11; Linux x86_64; rv:136.0) "
                 "Gecko/20100101 Firefox/136.0"
             ),
         }
-
-        import time
 
         now_ms = int(time.time() * 1000)
 
