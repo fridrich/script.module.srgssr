@@ -48,18 +48,18 @@ class Player:
         self.srgssr = srgssr_instance
         self.handle = srgssr_instance.handle
 
-    def play_video(self, media_id_or_urn):
+    def play_video(self, media_id_or_urn, title=None):
         """
         Gets the stream information starts to play it.
 
         Keyword arguments:
         media_id_or_urn -- the urn or id of the media to play
+        title           -- fallback title, used when mediaComposition has
+                            none (e.g. scheduled livestream events)
         """
         if ":scheduled_livestream:" in media_id_or_urn:
-            # The scheduledLivestreams IL 2.0 endpoint returns event
-            # pointer URNs (urn:<bu>:scheduled_livestream:video:<uuid>)
-            # that mediaComposition/byUrn cannot resolve. The actual
-            # playable stream uses the swisstxt URN scheme instead.
+            # scheduledLivestreams event URNs aren't resolvable by
+            # mediaComposition/byUrn; convert to the playable swisstxt form.
             parts = media_id_or_urn.split(":")
             bu = parts[1]
             event_id = parts[-1]
@@ -84,7 +84,13 @@ class Player:
             + urn
         )
         json_response = json.loads(self.srgssr.open_url(detail_url))
-        title = utils.try_get(json_response, ["episode", "title"], str, urn)
+        # try_get's default only kicks in on a missing/wrong-typed field,
+        # not an explicit "" -- some live events return episode.title=="".
+        title = (
+            utils.try_get(json_response, ["episode", "title"], str, "")
+            or title
+            or urn
+        )
 
         chapter_list = utils.try_get(
             json_response, "chapterList", data_type=list, default=[]
