@@ -48,12 +48,16 @@ class Player:
         self.srgssr = srgssr_instance
         self.handle = srgssr_instance.handle
 
-    def play_video(self, media_id_or_urn):
+    def play_video(self, media_id_or_urn, title=None):
         """
         Gets the stream information starts to play it.
 
         Keyword arguments:
         media_id_or_urn -- the urn or id of the media to play
+        title           -- a caller-supplied fallback title, used when
+                            mediaComposition has none (e.g. scheduled
+                            livestream events, whose urn would otherwise be
+                            shown instead of a real title)
         """
         if ":scheduled_livestream:" in media_id_or_urn:
             # The scheduledLivestreams IL 2.0 endpoint returns event
@@ -84,7 +88,9 @@ class Player:
             + urn
         )
         json_response = json.loads(self.srgssr.open_url(detail_url))
-        title = utils.try_get(json_response, ["episode", "title"], str, urn)
+        title = utils.try_get(
+            json_response, ["episode", "title"], str, title or urn
+        )
 
         chapter_list = utils.try_get(
             json_response, "chapterList", data_type=list, default=[]
