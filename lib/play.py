@@ -46,13 +46,24 @@ class Player:
         self.srgssr = srgssr_instance
         self.handle = srgssr_instance.handle
 
-    def play_video(self, media_id_or_urn):
+    def play_video(self, media_id_or_urn, title=None, resume=None):
         """
         Gets the stream information starts to play it.
 
         Keyword arguments:
         media_id_or_urn -- the urn or id of the media to play
+        title           -- fallback title, used when mediaComposition has
+                           none (e.g. scheduled livestream events)
+        resume          -- resume position in seconds; must be set on the
+                           played ListItem itself, or Kodi won't seek there
         """
+        if ":scheduled_livestream:" in media_id_or_urn:
+            # scheduledLivestreams event URNs aren't resolvable by
+            # mediaComposition/byUrn; convert to the playable swisstxt form.
+            parts = media_id_or_urn.split(":")
+            bu, event_id = parts[1], parts[-1]
+            media_id_or_urn = f"urn:swisstxt:video:{bu}:{event_id.replace('-', '')}"
+
         if media_id_or_urn.startswith("urn:"):
             urn = media_id_or_urn
             media_id = media_id_or_urn.split(":")[-1]
@@ -68,7 +79,9 @@ class Player:
         )
         json_response = json.loads(self.srgssr.open_url(detail_url))
         # Some livestreams have an empty episode title:
-        title = utils.try_get(json_response, ["episode", "title"], str, "") or urn
+        title = (
+            utils.try_get(json_response, ["episode", "title"], str, "") or title or urn
+        )
 
         chapter_list = utils.try_get(
             json_response, "chapterList", data_type=list, default=[]
@@ -101,6 +114,12 @@ class Player:
             self.srgssr.log("play_video: no stream URL found. (resourceList empty)")
             return
 
+        duration_ms = utils.try_get(chapter, "duration", data_type=int)
+        duration_sec = duration_ms // 1000 if duration_ms else None
+        if resume and not duration_sec:
+            # Kodi needs both ResumeTime and TotalTime to seek on start.
+            resume = None
+
         stream_urls = {
             "SD": "",
             "HD": "",
@@ -119,7 +138,7 @@ class Player:
                         stream_urls[key] = utils.try_get(resource, "url")
 
         if drm:
-            self.play_drm(urn, title, resource_list)
+            self.play_drm(urn, title, resource_list, resume, duration_sec)
             return
 
         if not stream_urls["SD"] and not stream_urls["HD"]:
@@ -187,9 +206,13 @@ class Player:
         play_item.setProperty("inputstream.adaptive.manifest_type", mf_type)
         play_item.setProperty("IsPlayable", "true")
 
+        if resume:
+            play_item.setProperty("ResumeTime", str(resume))
+            play_item.setProperty("TotalTime", str(duration_sec))
+
         xbmcplugin.setResolvedUrl(self.handle, True, play_item)
 
-    def play_drm(self, urn, title, resource_list):
+    def play_drm(self, urn, title, resource_list, resume=None, duration=None):
         self.srgssr.log(f"play_drm: urn = {urn}")
         preferred_quality = "HD" if self.srgssr.prefer_hd else "SD"
         resource_data = {
@@ -247,6 +270,9 @@ class Player:
         play_item.setProperty(f"{ia}.license_key", lic_key)
         if proxy:
             play_item.setProperty(f"{ia}.manifest_update_url", proxy.url)
+        if resume:
+            play_item.setProperty("ResumeTime", str(resume))
+            play_item.setProperty("TotalTime", str(duration))
         xbmcplugin.setResolvedUrl(self.handle, True, play_item)
 
         if proxy:

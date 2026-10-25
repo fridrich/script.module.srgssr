@@ -134,7 +134,15 @@ class SRGSSR:
             xbmc.log(msg=message, level=level)
 
     @staticmethod
-    def build_url(mode=None, name=None, url=None, page_hash=None, page=None):
+    def build_url(
+        mode=None,
+        name=None,
+        url=None,
+        page_hash=None,
+        page=None,
+        title=None,
+        resume=None,
+    ):
         """Build a URL for the Kodi plugin.
 
         Keyword arguments:
@@ -144,6 +152,9 @@ class SRGSSR:
         page_hash -- a string (used to get additional videos through the API)
         page      -- an integer used to indicate the current page in
                      the list of items
+        title     -- fallback title for the target mode (e.g. scheduled
+                     livestream events)
+        resume    -- resume position in seconds, for mode=50 (play_video)
         """
         try:
             mode = str(mode)
@@ -153,9 +164,10 @@ class SRGSSR:
             page = str(page)
         except Exception:
             pass
+        resume = str(resume) if resume else None
         added = False
-        queries = (url, mode, name, page_hash, page)
-        query_names = ("url", "mode", "name", "page_hash", "page")
+        queries = (url, mode, name, page_hash, page, title, resume)
+        query_names = ("url", "mode", "name", "page_hash", "page", "title", "resume")
         purl = sys.argv[0]
         for query, qname in zip(queries, query_names):
             if query:
